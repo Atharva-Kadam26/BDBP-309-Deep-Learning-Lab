@@ -280,7 +280,81 @@ def visualize_model(model, num_images = 6):  #6 is the number of validation imag
     with torch.no_grad(): #Normally, PyTorch keeps track of operations so that it can calculate gradients during backpropagation.
     # But we're not training the model here. We're only making predictions.
          for i,(inputs,labels) in enumerate(dataloaders['val']):
-             
+             #dataloader consists of:
+    # dataloaders = {
+    #     'train': train_loader,
+    #     'val': val_loader
+    # }
+             #each iteration gives inputs,labels
+             #inputs = contains images
+             #labels = contains class of each image
+             inputs = inputs.to(device)
+             labels = labels.to(device)
+
+             outputs = model(inputs)   #this is where the Neural Network actually processes the images
+             #outputs =[
+                       #   [2.1, 0.3, 4.7, 1.2],
+                       #   [5.2, 1.1, 0.4, 0.7],
+                       #   ...
+                       # ]
+
+             #in which each row corresponds to one image
+             #each column corresponds to one class
+             #These values are usually logits, not probabilities.
+             #the highest value is taken for each image
+
+             _, preds = torch.max(outputs,1)  #torch.max() finds the maximum value.
+             #1 means find the maximum across the class dimension
+
+             #outputs =
+             # [
+             #    [2.1, 0.3, 4.7, 1.2],
+             #    [5.2, 1.1, 0.4, 0.7]
+             # ]
+             # then , torch.max(outputs, 1) gives -> maximum values → [4.7, 5.2] indices        → [2, 0]
+             #_     → maximum scores
+             # preds → class indices
+             #preds = [2, 0]
+
+             #Image 1 → predicted class 2
+             # Image 2 → predicted class 0
+
+
+             for j in range(inputs.size()[0]):  #looping through each image in the batch
+                 images_so_far += 1
+                 ax = plt.subplot(num_images//2,2,images_so_far)
+                 #This determines where each image will appear.
+
+                 #if num_images = 6
+                 #then, num_images //2 = 3
+                 #which means there will be 3 rows and 2 cols
+                 # #┌─────────┬─────────┐
+                 #  │ Image 1 │ Image 2 │
+                 #  ├─────────┼─────────┤
+                 #  │ Image 3 │ Image 4 │
+                 #  ├─────────┼─────────┤
+                 #  │ Image 5 │ Image 6 │
+                 #  └─────────┴─────────┘
+
+                 # images_so_far specifies which position we're currently in '
+                 ax.axis('off')  #since its image we remove x and y axis
+                 ax.set_title(f'predicted: {class_names[preds[j]]}')
+
+                 imshow(inputs.cpu().data[j])  #diplays the current image
+
+                 if images_so_far == num_images: #so once all the images are displayed we stop
+                     model.train(mode=was_training) #we restore original model mode thus now the model is in training mode
+                     #This is important because we don't want the visualization function to permanently change the model's state.
+                     return
+
+         model.train(mode=was_training) #So this final line ensures that the model is still restored to its original mode.
+
+
+
+
+
+
+
 
 
 

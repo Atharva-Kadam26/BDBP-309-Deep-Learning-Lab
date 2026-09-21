@@ -1,0 +1,14 @@
+# Deep learning datasets
+**/data/
+*.npz
+*.tar.gz
+
+# PyTorch datasets
+**/MNIST/
+**/FashionMNIST/
+**/CIFAR10/
+**/cifar-10-batches-py/
+
+# Python
+__pycache__/
+*.pyc
