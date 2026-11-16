@@ -1,0 +1,18 @@
+# Flickr8k dataset
+images/
+captions.csv
+Flickr8k.token.txt
+Flickr_8k.*Images.txt
+
+# Trained model weights
+*.pth
+*.pt
+*.ckpt
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
