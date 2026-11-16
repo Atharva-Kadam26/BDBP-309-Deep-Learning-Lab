@@ -1,3 +1,4 @@
+
 """
 Lab 10 - Exercise 1
 
@@ -11,157 +12,161 @@ This is a multi-output regression problem.
 """
 
 import torch
-from torch import nn
+import torch.nn as nn
+import numpy as np
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, TensorDataset
 
 
-# --------------------------------------------------
-# Parameters
-# --------------------------------------------------
-
-INPUT_SIZE = 943
-OUTPUT_SIZE = 4760
-
-HIDDEN_SIZE = 512
-BATCH_SIZE = 32
-EPOCHS = 10
-LEARNING_RATE = 0.001
-
-
-# --------------------------------------------------
-# Deep Learning Model
-# --------------------------------------------------
-
-class GeneExpressionModel(nn.Module):
+class NeuralNetwork(nn.Module):
 
     def __init__(self):
+        super().__init__()
 
-        super(GeneExpressionModel, self).__init__()
+        self.network = nn.Sequential(
 
-        self.linear1 = nn.Linear(
-            INPUT_SIZE,
-            HIDDEN_SIZE
-        )
+            nn.Linear(901, 512),
+            nn.ReLU(),
 
-        self.relu1 = nn.ReLU()
+            nn.Linear(512, 256),
+            nn.ReLU(),
 
-        self.linear2 = nn.Linear(
-            HIDDEN_SIZE,
-            HIDDEN_SIZE
-        )
-
-        self.relu2 = nn.ReLU()
-
-        self.linear3 = nn.Linear(
-            HIDDEN_SIZE,
-            OUTPUT_SIZE
+            nn.Linear(256, 8518)
         )
 
     def forward(self, x):
 
-        x = self.linear1(x)
-        x = self.relu1(x)
-
-        x = self.linear2(x)
-        x = self.relu2(x)
-
-        output = self.linear3(x)
-
-        return output
+        return self.network(x)
 
 
-# --------------------------------------------------
-# Load Data
-# --------------------------------------------------
 
-# Replace these with your actual processed data files.
+# Load cleaned landmark and target gene matrices
 
-X_train = torch.load("X_train.pt")
-Y_train = torch.load("Y_train.pt")
+X = np.load("X_landmark.npy")
+y = np.load("Y_target.npy")
 
-X_test = torch.load("X_test.pt")
-Y_test = torch.load("Y_test.pt")
+print("Input shape:", X.shape)
+print("Target shape:", y.shape)
+
+print("Total samples:", X.shape[0])
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+print("\nTraining Input shape:", X_train.shape)
+print("Training Target shape:", y_train.shape)
+
+print("Testing Input shape:", X_test.shape)
+print("Testing Target shape:", y_test.shape)
+
+
+
+
+scaler_X = StandardScaler()
+scaler_y = StandardScaler()
+
+X_train = scaler_X.fit_transform(X_train)
+X_test = scaler_X.transform(X_test)
+
+y_train = scaler_y.fit_transform(y_train)
+y_test = scaler_y.transform(y_test)
+
+print("\nAfter standardization:")
+
+print("X_train mean:", np.mean(X_train))
+print("X_train standard deviation:", np.std(X_train))
+
+print("y_train mean:", np.mean(y_train))
+print("y_train standard deviation:", np.std(y_train))
+
+
+
+X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
+y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
+
+X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
+y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
 
 
 train_dataset = TensorDataset(
-    X_train,
-    Y_train
+    X_train_tensor,
+    y_train_tensor
 )
 
 test_dataset = TensorDataset(
-    X_test,
-    Y_test
+    X_test_tensor,
+    y_test_tensor
 )
+
+
 
 
 train_loader = DataLoader(
     train_dataset,
-    batch_size=BATCH_SIZE,
+    batch_size=64,
     shuffle=True
 )
 
 test_loader = DataLoader(
     test_dataset,
-    batch_size=BATCH_SIZE,
+    batch_size=64,
     shuffle=False
 )
 
+print("\nDataLoaders created successfully!")
 
-# --------------------------------------------------
-# Device
-# --------------------------------------------------
 
-device = (
-    torch.accelerator.current_accelerator().type
-    if torch.accelerator.is_available()
-    else torch.device("cpu")
+
+device = torch.device(
+    "cuda" if torch.cuda.is_available() else "cpu"
 )
 
-print(f"Using {device} device")
+print("Using device:", device)
 
 
-# --------------------------------------------------
-# Model
-# --------------------------------------------------
 
-model = GeneExpressionModel().to(device)
+model = NeuralNetwork().to(device)
+
+print("\nModel initialized successfully!")
 
 print(model)
-
-
-# --------------------------------------------------
-# Loss and Optimizer
-# --------------------------------------------------
 
 loss_fn = nn.MSELoss()
 
 optimizer = torch.optim.Adam(
     model.parameters(),
-    lr=LEARNING_RATE
+    lr=0.001
 )
 
 
-# --------------------------------------------------
-# Training
-# --------------------------------------------------
+epochs = 20
 
-for epoch in range(EPOCHS):
+for epoch in range(epochs):
 
     model.train()
 
     total_loss = 0
 
-    for X, y in train_loader:
+    for X_batch, y_batch in train_loader:
 
-        X = X.to(device)
-        y = y.to(device)
+        X_batch = X_batch.to(device)
+        y_batch = y_batch.to(device)
 
-        prediction = model(X)
+        # Forward propagation
 
-        loss = loss_fn(
-            prediction,
-            y
-        )
+        predictions = model(X_batch)
+
+        # Calculate loss
+
+        loss = loss_fn(predictions, y_batch)
+
+        # Backpropagation
 
         optimizer.zero_grad()
 
@@ -171,46 +176,101 @@ for epoch in range(EPOCHS):
 
         total_loss += loss.item()
 
-    average_loss = (
-        total_loss /
-        len(train_loader)
-    )
+    average_loss = total_loss / len(train_loader)
 
     print(
-        f"Epoch [{epoch + 1}/{EPOCHS}] "
-        f"Training Loss: {average_loss:.6f}"
+        f"Epoch [{epoch + 1}/{epochs}] "
+        f"Training Loss: {average_loss:.4f}"
     )
 
-
-# --------------------------------------------------
-# Testing
-# --------------------------------------------------
 
 model.eval()
 
-test_loss = 0
+total_test_loss = 0
 
 with torch.no_grad():
 
-    for X, y in test_loader:
+    for X_batch, y_batch in test_loader:
 
-        X = X.to(device)
-        y = y.to(device)
+        X_batch = X_batch.to(device)
+        y_batch = y_batch.to(device)
 
-        prediction = model(X)
+        # Generate predictions
 
-        loss = loss_fn(
-            prediction,
-            y
-        )
+        predictions = model(X_batch)
 
-        test_loss += loss.item()
+        # Calculate testing loss
+
+        loss = loss_fn(predictions, y_batch)
+
+        total_test_loss += loss.item()
 
 
-test_loss = test_loss / len(test_loader)
+average_test_loss = total_test_loss / len(test_loader)
 
-print(
-    f"\nTest MSE: {test_loss:.6f}"
+print("\nOverall Test MSE:", average_test_loss)
+
+from sklearn.metrics import r2_score, mean_absolute_error
+
+# Store predictions and actual values
+
+all_predictions = []
+all_targets = []
+
+model.eval()
+
+with torch.no_grad():
+
+    for X_batch, y_batch in test_loader:
+
+        X_batch = X_batch.to(device)
+
+        predictions = model(X_batch)
+
+        all_predictions.append(predictions.cpu().numpy())
+        all_targets.append(y_batch.numpy())
+
+# Combine all batches
+
+all_predictions = np.concatenate(all_predictions, axis=0)
+all_targets = np.concatenate(all_targets, axis=0)
+
+# evaluation metrics
+
+r2 = r2_score(all_targets, all_predictions)
+mae = mean_absolute_error(all_targets, all_predictions)
+
+print("\nAdditional Evaluation Metrics:")
+print("R2 Score:", r2)
+print("Mean Absolute Error:", mae)
+
+
+# R2 score for each target gene
+gene_r2_scores = r2_score(
+    all_targets,
+    all_predictions,
+    multioutput="raw_values"
 )
 
-print("\nEND")
+#  average gene-wise R2 score
+average_gene_r2 = np.mean(gene_r2_scores)
+
+#genes with positive R2 scores
+positive_genes = np.sum(gene_r2_scores > 0)
+
+# with negative R2 scores
+negative_genes = np.sum(gene_r2_scores < 0)
+
+print("\nGene-wise Evaluation:")
+print("Average gene-wise R2:", average_gene_r2)
+print("Genes with positive R2:", positive_genes)
+print("Genes with negative R2:", negative_genes)
+print("Total target genes:", len(gene_r2_scores))
+
+print("\nGene-wise R2 Distribution:")
+print("Minimum R2:", np.min(gene_r2_scores))
+print("Maximum R2:", np.max(gene_r2_scores))
+print("Median R2:", np.median(gene_r2_scores))
+print("25th percentile:", np.percentile(gene_r2_scores, 25))
+print("75th percentile:", np.percentile(gene_r2_scores, 75))
+
