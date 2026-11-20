@@ -8,9 +8,9 @@ from torch.utils.data import Dataset, DataLoader
 
 # 1. Load the datasets
 
-train_data = np.load("data/q2_data/train_20000.npz")
-val_data = np.load("data/q2_data/val_3000.npz")
-test_data = np.load("data/q2_data/test_3000.npz")
+train_data = np.load("../data/q2_data/train_20000.npz")
+val_data = np.load("../data/q2_data/val_3000.npz")
+test_data = np.load("../data/q2_data/test_3000.npz")
 
 x_train = train_data["images"]
 y_train = train_data["labels"]
